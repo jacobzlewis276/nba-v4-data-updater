@@ -194,6 +194,20 @@ def main():
     print(f"Calibration predictions: {len(calibration):,}")
     print(f"Evaluation predictions: {len(evaluation):,}")
 
+    print(
+        "Calibration dates:",
+        calibration["game_date"].min(),
+        "to",
+        calibration["game_date"].max()
+    )
+
+    print(
+        "Evaluation dates:",
+        evaluation["game_date"].min(),
+        "to",
+        evaluation["game_date"].max()
+    )
+
 
 
    
