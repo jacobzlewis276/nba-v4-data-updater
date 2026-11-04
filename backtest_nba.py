@@ -123,43 +123,51 @@ def main():
                 if not np.isfinite(sd) or sd <= 0:
                     continue
 
-                # Synthetic half-point line near projection.
+               
+                # Test five synthetic half-point lines.
                 # These are NOT historical FanDuel lines.
-                line = max(
-                    0.5, np.floor(projection) + 0.5
-                )
-
-                p_over = 1 - normal_cdf(
-                    (line - projection) / sd
-                )
-                p_under = 1 - p_over
+                base_line = np.floor(projection) + 0.5
+                offsets = [-4, -2, 0, 2, 4]
 
                 game_date = group.loc[i, "game_date"]
 
-                for side, probability, won in [
-                    ("OVER", p_over, actual > line),
-                    ("UNDER", p_under, actual < line),
-                ]:
-                    results.append({
-                        "game_date": game_date,
-                        "player_id": player_id,
-                        "market": market,
-                        "side": side,
-                        "line": line,
-                        "projection": projection,
-                        "sd": sd,
-                        "raw_probability": probability,
-                        "actual": actual,
-                        "won": int(won),
-                        "prediction_error": actual - projection,
-                        "dataset": (
-                            "EVALUATION"
-                            if game_date >= pd.Timestamp(
-                                EVALUATION_START
-                            )
-                            else "CALIBRATION"
-                        ),
-                    })
+                for offset in offsets:
+                    line = base_line + offset
+
+                    # Player statistics cannot be negative.
+                    if line < 0.5:
+                        continue
+
+                    p_over = 1 - normal_cdf(
+                        (line - projection) / sd
+                    )
+                    p_under = 1 - p_over
+
+                    for side, probability, won in [
+                        ("OVER", p_over, actual > line),
+                        ("UNDER", p_under, actual < line),
+                    ]:
+                        results.append({
+                            "game_date": game_date,
+                            "player_id": player_id,
+                            "market": market,
+                            "side": side,
+                            "line": line,
+                            "projection": projection,
+                            "sd": sd,
+                            "raw_probability": probability,
+                            "actual": actual,
+                            "won": int(won),
+                            "prediction_error": actual - projection,
+                            "dataset": (
+                                "EVALUATION"
+                                if game_date >= pd.Timestamp(
+                                    EVALUATION_START
+                                )
+                                else "CALIBRATION"
+                            ),
+                        })
+
 
     if not results:
         raise RuntimeError("No backtest predictions generated.")
