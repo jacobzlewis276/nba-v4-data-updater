@@ -164,16 +164,20 @@ def main():
     if not results:
         raise RuntimeError("No backtest predictions generated.")
 
+   
     output = pd.DataFrame(results)
 
     output = output.sort_values(
         ["game_date", "player_id", "market", "side"]
     )
-# Keep the most recent 50,000 predictions
-output = output.sort_values("game_date", ascending=False)
-output = output.head(50000)
+
+    # Limit the CSV to the 50,000 most recent predictions
+    output = output.sort_values("game_date", ascending=False)
+    output = output.head(50000)
+
     output_path = DATA_DIR / "backtest_results.csv"
     output.to_csv(output_path, index=False)
+
 
     print(f"Saved {len(output):,} predictions")
     print(f"Output: {output_path}")
