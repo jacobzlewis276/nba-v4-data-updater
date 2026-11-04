@@ -32,6 +32,9 @@ jobs:
       - name: Run NBA historical backtest
         run: python backtest_nba.py
 
+      - name: Evaluate NBA probability calibration
+        run: python calibrate_nba.py
+
       - name: Publish CSV files
         run: |
           git config user.name "github-actions[bot]"
