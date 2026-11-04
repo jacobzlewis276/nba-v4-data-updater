@@ -279,5 +279,35 @@ def main():
 
 
 
+    # Probability accuracy report using evaluation data
+    print("\nEVALUATION PROBABILITY ACCURACY")
+
+    eval_over = evaluation[
+        evaluation["side"] == "OVER"
+    ].copy()
+
+    bins = np.arange(0, 1.01, 0.10)
+
+    eval_over["probability_range"] = pd.cut(
+        eval_over["raw_probability"],
+        bins=bins,
+        include_lowest=True
+    )
+
+    accuracy = eval_over.groupby(
+        "probability_range", observed=True
+    ).agg(
+        predictions=("won", "size"),
+        avg_predicted=("raw_probability", "mean"),
+        actual_hit_rate=("won", "mean")
+    )
+
+    accuracy["difference"] = (
+        accuracy["avg_predicted"]
+        - accuracy["actual_hit_rate"]
+    )
+
+    print(accuracy.to_string())
+
 if __name__ == "__main__":
     main()
