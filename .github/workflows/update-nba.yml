@@ -34,7 +34,8 @@ jobs:
 
       - name: Evaluate NBA probability calibration
         run: python calibrate_nba.py
-python walkforward_nba.py
+      - name: Run NBA walk-forward validation
+        run: python walkforward_nba.py
       - name: Publish CSV files
         run: |
           git config user.name "github-actions[bot]"
