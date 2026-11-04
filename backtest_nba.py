@@ -196,36 +196,59 @@ def main():
     # Sample complete OVER/UNDER pairs across the date range.
     # Each pair represents one player-game-market-line.
 
-    def sample_pairs(df, max_pairs=12500):
-        over = df[df["side"] == "OVER"].copy()
+    # Sample complete player-game-market groups.
+    # Keep all available synthetic lines and both sides together.
 
-        if over.empty:
-            return df.iloc[0:0].copy()
+    def sample_groups(df, max_rows=25000):
+        if df.empty:
+            return df.copy()
 
-        n = min(max_pairs, len(over))
-
-        positions = np.linspace(
-            0, len(over) - 1, n, dtype=int
-        )
-
-        selected = over.iloc[positions].copy()
-
-        pair_keys = [
-            "game_date", "player_id", "market", "line"
+        group_keys = [
+            "game_date", "player_id", "market"
         ]
 
-        paired = df.merge(
-            selected[pair_keys].drop_duplicates(),
-            on=pair_keys,
-            how="inner"
+        # Give each player-game-market one group ID.
+        group_ids = df.groupby(
+            group_keys, sort=False
+        ).ngroup()
+
+        groups = df.copy()
+        groups["_group_id"] = group_ids
+
+        # Spread selected groups across the full date range.
+        unique_ids = groups["_group_id"].drop_duplicates()
+        group_count = len(unique_ids)
+
+        # Each group has at most 10 predictions:
+        # five lines times OVER and UNDER.
+        target_groups = min(
+            max_rows // 10, group_count
         )
 
-        return paired.sort_values(
-            ["game_date", "player_id", "market", "side"]
+        if target_groups == 0:
+            return df.iloc[0:0].copy()
+
+        positions = np.linspace(
+            0, group_count - 1,
+            target_groups,
+            dtype=int
+        )
+
+        selected_ids = unique_ids.iloc[positions]
+
+        sampled = groups[
+            groups["_group_id"].isin(selected_ids)
+        ].copy()
+
+        sampled = sampled.drop(columns=["_group_id"])
+
+        return sampled.sort_values(
+            ["game_date", "player_id", "market", "line", "side"]
         ).reset_index(drop=True)
 
-    calibration = sample_pairs(calibration)
-    evaluation = sample_pairs(evaluation)
+    calibration = sample_groups(calibration)
+    evaluation = sample_groups(evaluation)
+
 
 
 
