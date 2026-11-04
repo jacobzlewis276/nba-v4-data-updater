@@ -279,35 +279,50 @@ def main():
 
 
 
-    # Probability accuracy report using evaluation data
-    print("\nEVALUATION PROBABILITY ACCURACY")
+   
+    # Historical probability accuracy by market.
+    # Use CALIBRATION data only, not EVALUATION data.
 
-    eval_over = evaluation[
-        evaluation["side"] == "OVER"
+    print("\nHISTORICAL CALIBRATION REPORTS")
+
+    calibration_over = calibration[
+        calibration["side"] == "OVER"
     ].copy()
 
     bins = np.arange(0, 1.01, 0.10)
 
-    eval_over["probability_range"] = pd.cut(
-        eval_over["raw_probability"],
+    calibration_over["probability_range"] = pd.cut(
+        calibration_over["raw_probability"],
         bins=bins,
         include_lowest=True
     )
 
-    accuracy = eval_over.groupby(
-        "probability_range", observed=True
-    ).agg(
-        predictions=("won", "size"),
-        avg_predicted=("raw_probability", "mean"),
-        actual_hit_rate=("won", "mean")
-    )
+    for market in MARKETS:
+        market_data = calibration_over[
+            calibration_over["market"] == market
+        ].copy()
 
-    accuracy["difference"] = (
-        accuracy["avg_predicted"]
-        - accuracy["actual_hit_rate"]
-    )
+        if market_data.empty:
+            print(f"\n{market}: No predictions")
+            continue
 
-    print(accuracy.to_string())
+        report = market_data.groupby(
+            "probability_range",
+            observed=True
+        ).agg(
+            predictions=("won", "size"),
+            avg_predicted=("raw_probability", "mean"),
+            actual_hit_rate=("won", "mean")
+        )
+
+        report["difference"] = (
+            report["avg_predicted"]
+            - report["actual_hit_rate"]
+        )
+
+        print(f"\n{market} CALIBRATION REPORT")
+        print(report.to_string())
+
 
 if __name__ == "__main__":
     main()
