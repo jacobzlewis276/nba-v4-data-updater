@@ -182,8 +182,16 @@ def main():
     ].copy()
 
     # Keep up to 25,000 predictions from each period
-    calibration = calibration.tail(25000)
-    evaluation = evaluation.head(25000)
+  
+    # Sample across each full date range, not just a few days.
+    calibration = calibration.iloc[
+        np.linspace(0, len(calibration) - 1, min(25000, len(calibration)), dtype=int)
+    ].copy()
+
+    evaluation = evaluation.iloc[
+        np.linspace(0, len(evaluation) - 1, min(25000, len(evaluation)), dtype=int)
+    ].copy()
+
 
     calibration_path = DATA_DIR / "backtest_calibration.csv"
     evaluation_path = DATA_DIR / "backtest_evaluation.csv"
