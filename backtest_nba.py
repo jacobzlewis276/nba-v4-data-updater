@@ -165,22 +165,38 @@ def main():
         raise RuntimeError("No backtest predictions generated.")
 
    
+   
     output = pd.DataFrame(results)
 
     output = output.sort_values(
         ["game_date", "player_id", "market", "side"]
     )
 
-    # Limit the CSV to the 50,000 most recent predictions
-    output = output.sort_values("game_date", ascending=False)
-    output = output.head(50000)
+    # Separate historical calibration and future evaluation data
+    calibration = output[
+        output["dataset"] == "CALIBRATION"
+    ].copy()
 
-    output_path = DATA_DIR / "backtest_results.csv"
-    output.to_csv(output_path, index=False)
+    evaluation = output[
+        output["dataset"] == "EVALUATION"
+    ].copy()
+
+    # Keep up to 25,000 predictions from each period
+    calibration = calibration.tail(25000)
+    evaluation = evaluation.head(25000)
+
+    calibration_path = DATA_DIR / "backtest_calibration.csv"
+    evaluation_path = DATA_DIR / "backtest_evaluation.csv"
+
+    calibration.to_csv(calibration_path, index=False)
+    evaluation.to_csv(evaluation_path, index=False)
+
+    print(f"Calibration predictions: {len(calibration):,}")
+    print(f"Evaluation predictions: {len(evaluation):,}")
 
 
-    print(f"Saved {len(output):,} predictions")
-    print(f"Output: {output_path}")
+
+   
     print(output.groupby(
         ["dataset", "market", "side"]
     ).agg(
