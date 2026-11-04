@@ -184,13 +184,41 @@ def main():
     # Keep up to 25,000 predictions from each period
   
     # Sample across each full date range, not just a few days.
-    calibration = calibration.iloc[
-        np.linspace(0, len(calibration) - 1, min(25000, len(calibration)), dtype=int)
-    ].copy()
+    
+    # Sample complete OVER/UNDER pairs across the date range.
+    # Each pair represents one player-game-market-line.
 
-    evaluation = evaluation.iloc[
-        np.linspace(0, len(evaluation) - 1, min(25000, len(evaluation)), dtype=int)
-    ].copy()
+    def sample_pairs(df, max_pairs=12500):
+        over = df[df["side"] == "OVER"].copy()
+
+        if over.empty:
+            return df.iloc[0:0].copy()
+
+        n = min(max_pairs, len(over))
+
+        positions = np.linspace(
+            0, len(over) - 1, n, dtype=int
+        )
+
+        selected = over.iloc[positions].copy()
+
+        pair_keys = [
+            "game_date", "player_id", "market", "line"
+        ]
+
+        paired = df.merge(
+            selected[pair_keys].drop_duplicates(),
+            on=pair_keys,
+            how="inner"
+        )
+
+        return paired.sort_values(
+            ["game_date", "player_id", "market", "side"]
+        ).reset_index(drop=True)
+
+    calibration = sample_pairs(calibration)
+    evaluation = sample_pairs(evaluation)
+
 
 
     calibration_path = DATA_DIR / "backtest_calibration.csv"
