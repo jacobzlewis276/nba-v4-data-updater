@@ -18,6 +18,36 @@ def log_loss(y, p):
     )
 
 
+def build_calibration_curve(raw, actual):
+    # Use the same 10 probability bins and smoothing
+    # method as our existing calibration function.
+    bins = np.linspace(0, 1, 11)
+
+    bin_ids = np.clip(
+        np.digitize(raw, bins) - 1, 0, 9
+    )
+
+    calibrated = []
+
+    for i in range(10):
+        mask = bin_ids == i
+        count = mask.sum()
+
+        observed = actual[mask].sum()
+        baseline = (
+            raw[mask].mean()
+            if count
+            else (i + 0.5) / 10
+        )
+
+        adjusted = (
+            observed + 100 * baseline
+        ) / (count + 100)
+
+        calibrated.append(adjusted)
+
+    return np.maximum.accumulate(calibrated)
+
 def calibrate_probability(p, raw, actual):
     # Fit a smoothed probability adjustment using
     # calibration observations only.
@@ -61,7 +91,7 @@ def main():
     )
 
     results = []
-
+    curve_rows = []
     for market in MARKETS:
         train = calibration[
             (calibration["market"] == market)
@@ -85,6 +115,21 @@ def main():
         adjusted = calibrate_probability(
             raw_test, raw_train, y_train
         )
+
+        curve = build_calibration_curve(
+            raw_train, y_train
+        )
+
+        for i, probability in enumerate(curve):
+            curve_rows.append({
+                "market": market,
+                "raw_probability": round(
+                    0.05 + i * 0.10, 2
+                ),
+                "calibrated_probability": float(
+                    probability
+                ),
+            })
 
         results.append({
             "market": market,
@@ -113,6 +158,17 @@ def main():
     report.to_csv(
         DATA_DIR / "calibration_report.csv",
         index=False
+    )
+
+    curves = pd.DataFrame(curve_rows)
+
+    curves.to_csv(
+        DATA_DIR / "calibration_curves.csv",
+        index=False
+    )
+
+    print(
+        f"Saved {len(curves)} calibration curve points"
     )
 
     print("\nNBA V4 CALIBRATION EVALUATION")
