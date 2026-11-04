@@ -59,7 +59,7 @@ def main():
         raise FileNotFoundError("No backtest files found.")
 
     df = pd.concat(frames, ignore_index=True)
-print("CSV COLUMN NAMES:", df.columns.tolist(), flush=True)
+    print("CSV COLUMN NAMES:", df.columns.tolist(), flush=True)
     required = [
         "date",
         "market",
