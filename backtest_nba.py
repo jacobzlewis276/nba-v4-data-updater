@@ -169,7 +169,9 @@ def main():
     output = output.sort_values(
         ["game_date", "player_id", "market", "side"]
     )
-
+# Keep the most recent 50,000 predictions
+output = output.sort_values("game_date", ascending=False)
+output = output.head(50000)
     output_path = DATA_DIR / "backtest_results.csv"
     output.to_csv(output_path, index=False)
 
