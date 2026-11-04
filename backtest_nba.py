@@ -219,13 +219,28 @@ def main():
 
 
    
-    print(output.groupby(
-        ["dataset", "market", "side"]
-    ).agg(
-        predictions=("won", "size"),
-        actual_hit_rate=("won", "mean"),
-        average_probability=("raw_probability", "mean"),
-    ).to_string())
+    
+    # Evaluate OVER predictions by market.
+    for name, df in [
+        ("CALIBRATION", calibration),
+        ("EVALUATION", evaluation),
+    ]:
+        over = df[df["side"] == "OVER"].copy()
+
+        over["brier"] = (
+            over["raw_probability"] - over["won"]
+        ) ** 2
+
+        summary = over.groupby("market").agg(
+            predictions=("won", "size"),
+            predicted_probability=("raw_probability", "mean"),
+            actual_hit_rate=("won", "mean"),
+            brier_score=("brier", "mean"),
+        )
+
+        print(f"\n{name} OVER BACKTEST")
+        print(summary.to_string())
+
 
 
 if __name__ == "__main__":
