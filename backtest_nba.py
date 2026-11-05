@@ -199,7 +199,7 @@ def main():
     # Sample complete player-game-market groups.
     # Keep all available synthetic lines and both sides together.
 
-    def sample_groups(df, max_rows=25000):
+    def sample_groups(df, max_rows=100000):
         if df.empty:
             return df.copy()
 
