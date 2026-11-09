@@ -29,12 +29,14 @@ jobs:
 
       - name: Download and convert NBA data
         run: python update_nba.py
+    - name: Run NBA historical backtest
+      run: python backtest_nba.py
 
-      - name: Run NBA historical backtest
-        run: python backtest_nba.py
+    - name: Run NBA matchup comparison backtest
+      run: python backtest_matchups.py
 
-      - name: Evaluate NBA probability calibration
-        run: python calibrate_nba.py
+    - name: Evaluate NBA probability calibration
+      run: python calibrate_nba.py
       - name: Run NBA walk-forward validation
         run: python walkforward_nba.py
       - name: Publish CSV files
