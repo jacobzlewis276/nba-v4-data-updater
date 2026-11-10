@@ -199,52 +199,101 @@ def main():
     # Sample complete player-game-market groups.
     # Keep all available synthetic lines and both sides together.
 
+  
     def sample_groups(df, max_rows=100000):
         if df.empty:
             return df.copy()
 
-        group_keys = [
-            "game_date", "player_id", "market"
-        ]
+        group_keys = ["game_date", "player_id", "market"]
 
-        # Give each player-game-market one group ID.
-        group_ids = df.groupby(
-            group_keys, sort=False
-        ).ngroup()
-
-        groups = df.copy()
-        groups["_group_id"] = group_ids
-
-        # Spread selected groups across the full date range.
-        unique_ids = groups["_group_id"].drop_duplicates()
-        group_count = len(unique_ids)
-
-        # Each group has at most 10 predictions:
-        # five lines times OVER and UNDER.
-        target_groups = min(
-            max_rows // 10, group_count
+        # Count the actual number of rows per complete group.
+        group_sizes = (
+            df.groupby(group_keys, sort=False)
+            .size()
+            .reset_index(name="row_count")
         )
 
-        if target_groups == 0:
+        # Spread our row budget across all available markets.
+        markets = sorted(group_sizes["market"].unique())
+        market_count = len(markets)
+
+        if market_count == 0:
             return df.iloc[0:0].copy()
 
-        positions = np.linspace(
-            0, group_count - 1,
-            target_groups,
-            dtype=int
+        selected_parts = []
+        remaining_budget = max_rows
+
+        for market_index, market in enumerate(markets):
+            market_groups = (
+                group_sizes[group_sizes["market"] == market]
+                .sort_values(["game_date", "player_id"])
+                .reset_index(drop=True)
+            )
+
+            if market_groups.empty:
+                continue
+
+            markets_left = market_count - market_index
+
+            # Divide remaining capacity among remaining markets.
+            market_budget = remaining_budget // markets_left
+
+            total_rows = int(market_groups["row_count"].sum())
+
+            if total_rows <= market_budget:
+                chosen = market_groups.copy()
+            else:
+                # Evenly spaced groups across the date range.
+                average_rows = market_groups["row_count"].mean()
+
+                target_count = max(
+                    1,
+                    min(
+                        len(market_groups),
+                        int(market_budget // average_rows),
+                    ),
+                )
+
+                positions = np.linspace(
+                    0,
+                    len(market_groups) - 1,
+                    target_count,
+                    dtype=int,
+                )
+
+                candidates = market_groups.iloc[
+                    np.unique(positions)
+                ].copy()
+
+                # Respect the row limit using actual group sizes.
+                cumulative = candidates["row_count"].cumsum()
+
+                chosen = candidates[
+                    cumulative <= market_budget
+                ].copy()
+
+            selected_parts.append(chosen[group_keys])
+
+            remaining_budget -= int(chosen["row_count"].sum())
+
+        if not selected_parts:
+            return df.iloc[0:0].copy()
+
+        selected_keys = pd.concat(
+            selected_parts, ignore_index=True
+        ).drop_duplicates()
+
+        sampled = df.merge(
+            selected_keys,
+            on=group_keys,
+            how="inner",
+            validate="many_to_one",
         )
-
-        selected_ids = unique_ids.iloc[positions]
-
-        sampled = groups[
-            groups["_group_id"].isin(selected_ids)
-        ].copy()
-
-        sampled = sampled.drop(columns=["_group_id"])
 
         return sampled.sort_values(
             ["game_date", "player_id", "market", "line", "side"]
         ).reset_index(drop=True)
+
 
     calibration = sample_groups(calibration)
     evaluation = sample_groups(evaluation)
