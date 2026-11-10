@@ -41,6 +41,9 @@ jobs:
       - name: Optimize NBA matchup strength
         run: python optimize_matchups.py
 
+      - name: Calibrate NBA matchup probabilities
+        run: python calibrate_matchups.py
+
       - name: Evaluate NBA probability calibration
         run: python calibrate_nba.py
 
