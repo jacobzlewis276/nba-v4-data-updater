@@ -293,24 +293,34 @@ def build_prior_multipliers(team_games):
             )
         )
 
-        ratio = team_avg / league_avg
+       
+        ratio = (team_avg / league_avg).replace(
+            [np.inf, -np.inf], np.nan
+        ).fillna(1.0)
+
+        prior[f"{market}_ratio"] = ratio
 
         prior[f"{market}_multiplier"] = (
             1 + SHRINKAGE * (ratio - 1)
         ).clip(
             1 - MAX_ADJUSTMENT,
-            1 + MAX_ADJUSTMENT,
+            1 + MAX_ADJUSTMENT
         ).fillna(1.0)
 
+
+   
     return prior[
         [
             "game_date",
             "opponent",
             "team_prior_games",
+            "PTS_ratio",
+            "REB_ratio",
             "PTS_multiplier",
             "REB_multiplier",
         ]
     ]
+
 
 
 
