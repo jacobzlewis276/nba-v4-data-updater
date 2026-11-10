@@ -34,11 +34,16 @@ jobs:
       - name: Run NBA historical backtest
         run: python backtest_nba.py
 
+
       - name: Run NBA matchup comparison backtest
         run: python backtest_matchups.py
 
+      - name: Optimize NBA matchup strength
+        run: python optimize_matchups.py
+
       - name: Evaluate NBA probability calibration
         run: python calibrate_nba.py
+
 
       - name: Run NBA walk-forward validation
         run: python walkforward_nba.py
