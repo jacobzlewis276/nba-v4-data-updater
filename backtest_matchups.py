@@ -478,11 +478,39 @@ def generate_predictions(games, multipliers):
     return pd.DataFrame(results)
 
 
+def audit_dataset_dates(games):
+    """Print the actual game-date ranges for each dataset."""
+
+    audit = games[["game_date", "game_id"]].copy()
+    audit["game_date"] = pd.to_datetime(
+        audit["game_date"], errors="coerce"
+    )
+
+    audit["dataset"] = np.where(
+        audit["game_date"] >= EVALUATION_START,
+        "EVALUATION",
+        "CALIBRATION",
+    )
+
+    summary = (
+        audit.groupby("dataset", as_index=False)
+        .agg(
+            first_game=("game_date", "min"),
+            last_game=("game_date", "max"),
+            unique_games=("game_id", "nunique"),
+        )
+    )
+
+    print("\n=== NBA BACKTEST DATE AUDIT ===")
+    print(summary.to_string(index=False))
+    print("Evaluation cutoff:", EVALUATION_START.date())
+    print("===============================\n")
+
 def main():
     print("Starting NBA matchup comparison backtest...")
 
     games = load_games()
-
+    audit_dataset_dates(games)
     print(f"Player-game records: {len(games):,}")
 
     team_games = build_team_games(games)
