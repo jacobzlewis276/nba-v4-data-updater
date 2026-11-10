@@ -46,9 +46,9 @@ def main():
         for market in ["PTS", "REB"]:
             column = f"{market}_multiplier"
 
-            original = test_multipliers[column]
+          
+            ratio = test_multipliers[f"{market}_ratio"]
 
-            ratio = 1 + (original - 1) / 0.20
 
             adjusted = (
                 1 + strength * (ratio - 1)
