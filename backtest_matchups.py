@@ -125,13 +125,26 @@ def build_team_games(games):
     ).reset_index(drop=True)
 
 
+
 def build_prior_multipliers(team_games):
-    # Only games from earlier dates may influence
-    # a historical prediction.
+    # Reset defensive averages each NBA season.
+    # Use only games from BEFORE the prediction date.
+
+    tg = team_games.copy()
+
+    # NBA seasons begin in the fall.
+    # July through December belong to the season
+    # beginning that calendar year.
+    year = tg["game_date"].dt.year
+    month = tg["game_date"].dt.month
+
+    tg["season_start"] = np.where(
+        month >= 7, year, year - 1
+    )
 
     daily = (
-        team_games.groupby(
-            ["game_date", "team"],
+        tg.groupby(
+            ["season_start", "game_date", "team"],
             as_index=False,
         )
         .agg(
@@ -143,7 +156,7 @@ def build_prior_multipliers(team_games):
 
     league_daily = (
         daily.groupby(
-            "game_date",
+            ["season_start", "game_date"],
             as_index=False,
         )
         .agg(
@@ -151,8 +164,12 @@ def build_prior_multipliers(team_games):
             league_reb=("opp_reb", "sum"),
             league_games=("games", "sum"),
         )
-        .sort_values("game_date")
+        .sort_values(
+            ["season_start", "game_date"]
+        )
     )
+
+    # League totals restart at each season.
 
     for col in ["pts", "reb", "games"]:
         source = (
@@ -161,14 +178,19 @@ def build_prior_multipliers(team_games):
             else f"league_{col}"
         )
 
+        cumulative = league_daily.groupby(
+            "season_start"
+        )[source].cumsum()
+
         league_daily[f"prior_{col}"] = (
-            league_daily[source]
-            .cumsum()
-            .shift(fill_value=0)
+            cumulative.groupby(
+                league_daily["season_start"]
+            ).shift(fill_value=0)
         )
 
     dates = league_daily[
         [
+            "season_start",
             "game_date",
             "prior_pts",
             "prior_reb",
@@ -176,62 +198,80 @@ def build_prior_multipliers(team_games):
         ]
     ].copy()
 
-    teams = daily.sort_values("game_date").copy()
+    teams = daily.sort_values(
+        ["season_start", "team", "game_date"]
+    ).copy()
+
+    # Team defensive totals restart each season.
 
     for col in ["opp_pts", "opp_reb", "games"]:
         teams[f"cumulative_{col}"] = (
-            teams.groupby("team")[col].cumsum()
+            teams.groupby(
+                ["season_start", "team"]
+            )[col].cumsum()
         )
-
-    all_teams = sorted(team_games["team"].unique())
 
     team_frames = []
 
-    for team in all_teams:
-        idx = pd.DatetimeIndex(dates["game_date"])
+    for season_start, season_dates in dates.groupby(
+        "season_start", sort=False
+    ):
+        season_teams = sorted(
+            teams.loc[
+                teams["season_start"] == season_start,
+                "team",
+            ].unique()
+        )
 
-        subset = teams[
-            teams["team"] == team
-        ].set_index("game_date")
+        idx = pd.DatetimeIndex(
+            season_dates["game_date"]
+        )
 
-        cumulative = subset[
-            [
-                "cumulative_opp_pts",
-                "cumulative_opp_reb",
-                "cumulative_games",
+        for team in season_teams:
+            subset = teams[
+                (teams["season_start"] == season_start)
+                & (teams["team"] == team)
+            ].set_index("game_date")
+
+            cumulative = subset[
+                [
+                    "cumulative_opp_pts",
+                    "cumulative_opp_reb",
+                    "cumulative_games",
+                ]
             ]
-        ]
 
-        # Shift by one calendar date so current-date
-        # games cannot leak into defensive averages.
+            # Shift one calendar date to avoid
+            # using any same-day results.
 
-        cumulative = (
-            cumulative.reindex(idx)
-            .ffill()
-            .shift(1)
-            .fillna(0)
-        )
+            cumulative = (
+                cumulative.reindex(idx)
+                .ffill()
+                .shift(1)
+                .fillna(0)
+            )
 
-        cumulative = cumulative.rename(
-            columns={
-                "cumulative_opp_pts": "team_prior_pts",
-                "cumulative_opp_reb": "team_prior_reb",
-                "cumulative_games": "team_prior_games",
-            }
-        )
+            cumulative = cumulative.rename(
+                columns={
+                    "cumulative_opp_pts": "team_prior_pts",
+                    "cumulative_opp_reb": "team_prior_reb",
+                    "cumulative_games": "team_prior_games",
+                }
+            )
 
-        cumulative["game_date"] = idx.to_numpy()
-        cumulative["opponent"] = team
+            cumulative["game_date"] = idx.to_numpy()
+            cumulative["season_start"] = season_start
+            cumulative["opponent"] = team
 
-        team_frames.append(
-            cumulative.reset_index(drop=True)
-        )
+            team_frames.append(
+                cumulative.reset_index(drop=True)
+            )
 
     prior = pd.concat(
         team_frames, ignore_index=True
     ).merge(
         dates,
-        on="game_date",
+        on=["season_start", "game_date"],
         how="left",
     )
 
@@ -271,6 +311,7 @@ def build_prior_multipliers(team_games):
             "REB_multiplier",
         ]
     ]
+
 
 
 def weighted_projection(history):
